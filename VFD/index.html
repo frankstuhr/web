@@ -181,6 +181,12 @@
   <div class="card">
     <h2>Text</h2>
 
+    <fieldset>
+      <legend>Schrift</legend>
+      <div class="btns" id="fontBtns" style="margin-top:0"></div>
+      <p class="hint" id="fontInfo"></p>
+    </fieldset>
+
     <label class="row"><span>Zeile 1</span><input type="text" id="l0" maxlength="20" spellcheck="false"></label>
     <label class="row"><span>Zeile 2</span><input type="text" id="l1" maxlength="20" spellcheck="false"></label>
     <label class="row"><span>Zeile 3</span><input type="text" id="l2" maxlength="20" spellcheck="false"></label>
@@ -229,6 +235,7 @@
 </div>
 
 <script src="font5x7.js"></script>
+<script src="fonts.js"></script>
 <script>
 (function () {
   "use strict";
@@ -256,6 +263,7 @@
   /* ---------- Zustand ---------- */
   // pixels[y][x] – die einzige Quelle der Wahrheit fuer das, was leuchtet
   const pixels = Array.from({ length: H }, () => new Array(W).fill(false));
+  let currentFont = "a00";
   let bigFirstLine = false;
   let drawMode = null;          // null | "set" | "erase"
   let selected = null;          // {row, col} der gewaehlten Zeichenzelle
@@ -368,7 +376,7 @@
 
   /* Ein Zeichen an Zeichenposition (row, col) setzen, optional 2x skaliert */
   function putChar(ch, row, col, scale) {
-    const g = glyphFor(ch);
+    const g = glyphIn(currentFont, ch);
     const ox = col * CW, oy = row * CH;
     for (let gy = 0; gy < CH; gy++) {
       for (let gx = 0; gx < CW; gx++) {
@@ -471,6 +479,34 @@
 
   function setPressed(id, on) {
     document.getElementById(id).setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  /* ---------- Schriftauswahl ---------- */
+  const fontBtns = document.getElementById("fontBtns");
+  const fontInfo = document.getElementById("fontInfo");
+
+  FONT_ORDER.forEach(function (key) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = FONTS[key].name;
+    b.setAttribute("aria-pressed", key === currentFont ? "true" : "false");
+    b.addEventListener("click", function () {
+      currentFont = key;
+      [...fontBtns.children].forEach(function (el, i) {
+        el.setAttribute("aria-pressed", FONT_ORDER[i] === key ? "true" : "false");
+      });
+      showFontInfo();
+      renderText();
+    });
+    fontBtns.appendChild(b);
+  });
+
+  function showFontInfo() {
+    const f = FONTS[currentFont];
+    const n = Object.keys(f.glyphs).length;
+    fontInfo.innerHTML = f.deckt + ". " + f.hinweis +
+      (n ? " (" + n + " eigene Zeichen, Rest aus A00.)" : "") +
+      ' <a href="zeichensatz.html" style="color:inherit">Alle Zeichen ansehen</a>';
   }
 
   document.getElementById("bBig").addEventListener("click", function () {
@@ -592,6 +628,7 @@
   inputs[1].disabled = true;
   inputs[0].value = "22:21";
   inputs[3].value = "  22°C  50%  999hPa";
+  showFontInfo();
   renderText();
 })();
 </script>

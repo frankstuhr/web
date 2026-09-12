@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeichensätze — VFD-Simulator</title>
+<meta name="theme-color" content="#07100e">
+<style>
+  :root { --bg:#0b1412; --panel:#121d1a; --line:#24352f; --ink:#d6e6e0; --ink-dim:#7e948d; --vfd:#8dffdf; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    padding: clamp(1rem, 3vw, 2.5rem);
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { margin: 0 0 .3rem; font-size: clamp(1.1rem,2.5vw,1.5rem); font-weight: 600; }
+  .sub { margin: 0 0 2rem; color: var(--ink-dim); font-size: .875rem; }
+  .sub a { color: var(--vfd); }
+
+  section { margin-bottom: 2.25rem; }
+  h2 { margin: 0 0 .2rem; font-size: 1rem; font-weight: 600; color: var(--vfd); }
+  .meta { margin: 0 0 .9rem; font-size: .8rem; color: var(--ink-dim); }
+
+  .chart {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    background: #06100e; border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px;
+  }
+  .gl { text-align: center; }
+  .gl canvas { display: block; }
+  .gl span {
+    display: block; margin-top: 3px;
+    font: 10px ui-monospace, Menlo, monospace; color: var(--ink-dim);
+  }
+  .gl.own span { color: var(--vfd); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Zeichensätze im Überblick</h1>
+<p class="sub">
+  Alle Varianten für die 5 × 7-Matrix. Zeichen mit <b style="color:var(--vfd)">hellem Label</b>
+  gestaltet die Variante selbst, die übrigen kommen aus A00.
+  Zurück zum <a href="./">Simulator</a>.
+</p>
+
+<div id="out"></div>
+
+</div>
+
+<script src="font5x7.js"></script>
+<script src="fonts.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const CHARS = [];
+  for (let c = 32; c <= 126; c++) CHARS.push(String.fromCharCode(c));
+  "°ÄÖÜäöüß".split("").forEach(c => CHARS.push(c));
+
+  const DOT = 4, GAP = 1, CW = 5, CH = 7;
+  const w = CW * DOT + (CW - 1) * GAP;
+  const h = CH * DOT + (CH - 1) * GAP;
+
+  function drawGlyph(cv, glyph) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = w * dpr; cv.height = h * dpr;
+    cv.style.width = w + "px"; cv.style.height = h + "px";
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#06100e";
+    ctx.fillRect(0, 0, w, h);
+    for (let y = 0; y < CH; y++) {
+      for (let x = 0; x < CW; x++) {
+        const on = (glyph[y] & (1 << (CW - 1 - x))) !== 0;
+        ctx.fillStyle = on ? "#8dffdf" : "#12312a";
+        ctx.fillRect(x * (DOT + GAP), y * (DOT + GAP), DOT, DOT);
+      }
+    }
+  }
+
+  const out = document.getElementById("out");
+
+  FONT_ORDER.forEach(function (key) {
+    const font = FONTS[key];
+
+    const sec = document.createElement("section");
+    const eigene = Object.keys(font.glyphs).length;
+
+    sec.innerHTML =
+      "<h2>" + font.name + "</h2>" +
+      '<p class="meta">' + font.deckt +
+      (eigene ? " · " + eigene + " eigene Zeichen" : "") +
+      " — " + font.hinweis + "</p>";
+
+    const chart = document.createElement("div");
+    chart.className = "chart";
+
+    CHARS.forEach(function (ch) {
+      const cell = document.createElement("div");
+      cell.className = "gl" + (isOwnGlyph(key, ch) ? " own" : "");
+      const cv = document.createElement("canvas");
+      drawGlyph(cv, glyphIn(key, ch));
+      cell.appendChild(cv);
+      const lab = document.createElement("span");
+      lab.textContent = (ch === " ") ? "␣" : ch;
+      cell.appendChild(lab);
+      chart.appendChild(cell);
+    });
+
+    sec.appendChild(chart);
+    out.appendChild(sec);
+  });
+})();
+</script>
+</body>
+</html>
