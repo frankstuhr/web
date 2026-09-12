@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VFD-Simulator CU20045SCPB-W5J</title>
+<meta name="description" content="Pixelmatrix-Simulator für das Noritake-Itron-VFD CU20045SCPB-W5J (20×4 Zeichen, 5×7 Dots).">
+<meta name="theme-color" content="#07100e">
+<style>
+  :root {
+    --bg:        #0b1412;
+    --panel:     #121d1a;
+    --line:      #24352f;
+    --ink:       #d6e6e0;
+    --ink-dim:   #7e948d;
+    --vfd:       #6ffbd2;
+    --accent:    #6ffbd2;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    padding: clamp(1rem, 3vw, 2.5rem);
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header { margin-bottom: 1.75rem; }
+
+  h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.15rem, 2.6vw, 1.6rem);
+    font-weight: 600;
+    letter-spacing: .01em;
+  }
+
+  .sub { margin: 0; color: var(--ink-dim); font-size: .875rem; }
+  .sub code { color: var(--vfd); font-size: .95em; }
+
+  /* --- Display --- */
+  .screen {
+    background: linear-gradient(180deg, #0a1614 0%, #06100e 100%);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: clamp(.75rem, 2vw, 1.4rem);
+    overflow-x: auto;
+    box-shadow: inset 0 0 60px rgba(0,0,0,.7);
+  }
+
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  .readout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-top: .7rem;
+    font-size: .78rem;
+    color: var(--ink-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout b { color: var(--ink); font-weight: 500; }
+
+  /* --- Bedienfeld --- */
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.15rem 1.25rem 1.3rem;
+  }
+
+  .card h2 {
+    margin: 0 0 .9rem;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  label.row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .5rem;
+  }
+
+  label.row span { color: var(--ink-dim); font-size: .78rem; }
+
+  input[type=text] {
+    width: 100%;
+    padding: .5rem .6rem;
+    background: #0a1210;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--vfd);
+    font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .12em;
+  }
+
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .hint { margin: .55rem 0 0; font-size: .74rem; color: var(--ink-dim); }
+
+  .btns { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
+
+  button {
+    padding: .45rem .8rem;
+    background: #16241f;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--ink);
+    font: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+
+  button:hover { border-color: var(--accent); background: #1b2f28; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--vfd); background: #14322a; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  fieldset { border: 0; margin: 0 0 1rem; padding: 0; }
+  fieldset legend { padding: 0; font-size: .78rem; color: var(--ink-dim); margin-bottom: .45rem; }
+
+  pre {
+    margin: 0;
+    padding: .75rem .85rem;
+    background: #0a1210;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--vfd);
+    font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 320px;
+  }
+
+  .cellinfo { font-size: .78rem; color: var(--ink-dim); margin: 0 0 .6rem; }
+  .cellinfo b { color: var(--ink); }
+
+  footer { margin-top: 2rem; font-size: .75rem; color: var(--ink-dim); }
+  footer a { color: var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>VFD-Simulator — Noritake Itron CU20045SCPB-W5J</h1>
+  <p class="sub">20 × 4 Zeichen à <code>5 × 7</code> Dots — Gesamtmatrix <code>100 × 28</code> Dots, HD44780-kompatibler Zeichensatz A00.</p>
+</header>
+
+<div class="screen">
+  <canvas id="vfd" aria-label="Simulierte VFD-Anzeige"></canvas>
+</div>
+
+<div class="readout">
+  <span>Cursor: <b id="rdPos">–</b></span>
+  <span>Zeichenzelle: <b id="rdCell">–</b></span>
+  <span>Dot in Zelle: <b id="rdDot">–</b></span>
+  <span>Leuchtende Dots: <b id="rdOn">0</b> / 2800</span>
+</div>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Text</h2>
+
+    <label class="row"><span>Zeile 1</span><input type="text" id="l0" maxlength="20" spellcheck="false"></label>
+    <label class="row"><span>Zeile 2</span><input type="text" id="l1" maxlength="20" spellcheck="false"></label>
+    <label class="row"><span>Zeile 3</span><input type="text" id="l2" maxlength="20" spellcheck="false"></label>
+    <label class="row"><span>Zeile 4</span><input type="text" id="l3" maxlength="20" spellcheck="false"></label>
+
+    <p class="hint" id="hintMode">Zeichen, die der A00-Zeichensatz nicht kennt, erscheinen als leeres Kästchen.</p>
+
+    <div class="btns">
+      <button type="button" id="bBig" aria-pressed="false">Zeile 1 doppelt hoch</button>
+      <button type="button" id="bPhoto">Wie im Foto</button>
+      <button type="button" id="bClear">Leeren</button>
+    </div>
+
+    <fieldset style="margin-top:1.4rem">
+      <legend>Zeichnen</legend>
+      <div class="btns" style="margin-top:0">
+        <button type="button" id="bDraw" aria-pressed="false">Dots setzen</button>
+        <button type="button" id="bErase" aria-pressed="false">Dots löschen</button>
+        <button type="button" id="bRebuild">Aus Text neu aufbauen</button>
+      </div>
+      <p class="hint">Im Zeichenmodus Dots anklicken oder mit gedrückter Maustaste ziehen. Änderungen am Text überschreiben die Zeichnung.</p>
+    </fieldset>
+  </div>
+
+  <div class="card">
+    <h2>Export</h2>
+
+    <p class="cellinfo">Ausgewählte Zelle: <b id="selCell">keine</b> — im Zeichenmodus eine Zelle anklicken.</p>
+
+    <div class="btns" style="margin-top:0">
+      <button type="button" id="bExpCell" aria-pressed="true">Zelle als CGRAM</button>
+      <button type="button" id="bExpFrame" aria-pressed="false">Ganzes Bild</button>
+      <button type="button" id="bCopy">Kopieren</button>
+    </div>
+
+    <pre id="out" style="margin-top:.9rem">–</pre>
+  </div>
+
+</div>
+
+<footer>
+  Gehört zum Hardware-Projekt mit dem CU20045SCPB-W5J. Zeichensatz in
+  <a href="font5x7.js">font5x7.js</a>, Doku im Vault unter „VFD-Pixelsimulator“.
+</footer>
+
+</div>
+
+<script src="font5x7.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Geometrie der echten Anzeige ----------
+     20 x 4 Zeichen, jede Zelle 5 x 7 Dots. Die Abstaende sind am Foto
+     abgemessen: innerhalb einer Zelle stehen die Dots dicht, zwischen
+     den Zellen liegt rund ein Dot Luft, zwischen den Zeilen etwas mehr. */
+  const COLS = 20, ROWS = 4;          // Zeichen
+  const CW = 5, CH = 7;               // Dots je Zeichen
+  const W = COLS * CW;                // 100 Dots breit
+  const H = ROWS * CH;                // 28 Dots hoch
+
+  const DOT = 12;                     // Kantenlaenge eines Dots in px
+  const DOT_GAP = 2.5;                // Luft zwischen Dots einer Zelle
+  const CHAR_GAP = 11;                // Luft zwischen Zeichenzellen
+  const LINE_GAP = 17;                // Luft zwischen Zeichenzeilen
+  const PAD = 16;
+
+  const cellW = CW * DOT + (CW - 1) * DOT_GAP;
+  const cellH = CH * DOT + (CH - 1) * DOT_GAP;
+  const pxW = Math.round(2 * PAD + COLS * cellW + (COLS - 1) * CHAR_GAP);
+  const pxH = Math.round(2 * PAD + ROWS * cellH + (ROWS - 1) * LINE_GAP);
+
+  /* ---------- Zustand ---------- */
+  // pixels[y][x] – die einzige Quelle der Wahrheit fuer das, was leuchtet
+  const pixels = Array.from({ length: H }, () => new Array(W).fill(false));
+  let bigFirstLine = false;
+  let drawMode = null;          // null | "set" | "erase"
+  let selected = null;          // {row, col} der gewaehlten Zeichenzelle
+  let exportMode = "cell";      // "cell" | "frame"
+
+  const cv = document.getElementById("vfd");
+  const ctx = cv.getContext("2d");
+  const inputs = [0,1,2,3].map(i => document.getElementById("l" + i));
+
+  /* ---------- Umrechnung Dot <-> Pixel ---------- */
+  function dotOriginX(x) {
+    const col = Math.floor(x / CW), inner = x % CW;
+    return PAD + col * (cellW + CHAR_GAP) + inner * (DOT + DOT_GAP);
+  }
+  function dotOriginY(y) {
+    const row = Math.floor(y / CH), inner = y % CH;
+    return PAD + row * (cellH + LINE_GAP) + inner * (DOT + DOT_GAP);
+  }
+
+  /* Aus Canvas-Koordinaten den getroffenen Dot bestimmen (oder null) */
+  function hitTest(px, py) {
+    const row = pickBand(py, PAD, cellH, LINE_GAP, ROWS);
+    const col = pickBand(px, PAD, cellW, CHAR_GAP, COLS);
+    if (row === null || col === null) return null;
+
+    const innerY = pickBand(py - PAD - row * (cellH + LINE_GAP), 0, DOT, DOT_GAP, CH);
+    const innerX = pickBand(px - PAD - col * (cellW + CHAR_GAP), 0, DOT, DOT_GAP, CW);
+    if (innerX === null || innerY === null) return { row, col, x: null, y: null };
+
+    return { row, col, x: col * CW + innerX, y: row * CH + innerY };
+  }
+
+  /* Index innerhalb einer regelmaessigen Folge aus Bloecken + Luecken */
+  function pickBand(v, start, size, gap, count) {
+    const rel = v - start;
+    if (rel < 0) return null;
+    const i = Math.floor(rel / (size + gap));
+    if (i < 0 || i >= count) return null;
+    return (rel - i * (size + gap)) <= size ? i : null;
+  }
+
+  /* ---------- Zeichnen ---------- */
+  function render() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (cv.width !== pxW * dpr) {
+      cv.width = pxW * dpr;
+      cv.height = pxH * dpr;
+      cv.style.aspectRatio = pxW + " / " + pxH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    ctx.fillStyle = "#06100e";
+    ctx.fillRect(0, 0, pxW, pxH);
+
+    let lit = 0;
+    const r = 2.5;
+
+    // Erst alle unbeleuchteten Dots – sie sind auf der echten Roehre
+    // als schwaches Raster sichtbar, genau wie im Foto.
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#12312a";
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (pixels[y][x]) continue;
+        roundRect(dotOriginX(x), dotOriginY(y), DOT, DOT, r);
+        ctx.fill();
+      }
+    }
+
+    // Dann die leuchtenden, mit Glimmen
+    ctx.shadowColor = "rgba(111, 251, 210, .85)";
+    ctx.shadowBlur = 9;
+    ctx.fillStyle = "#8dffdf";
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!pixels[y][x]) continue;
+        lit++;
+        roundRect(dotOriginX(x), dotOriginY(y), DOT, DOT, r);
+        ctx.fill();
+      }
+    }
+    ctx.shadowBlur = 0;
+
+    // Auswahlrahmen um die gewaehlte Zeichenzelle
+    if (selected) {
+      const gx = PAD + selected.col * (cellW + CHAR_GAP);
+      const gy = PAD + selected.row * (cellH + LINE_GAP);
+      ctx.strokeStyle = "rgba(141,255,223,.55)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(gx - 3.5, gy - 3.5, cellW + 7, cellH + 7);
+    }
+
+    document.getElementById("rdOn").textContent = lit;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  /* ---------- Text in die Matrix schreiben ---------- */
+  function clearPixels() {
+    for (let y = 0; y < H; y++) pixels[y].fill(false);
+  }
+
+  /* Ein Zeichen an Zeichenposition (row, col) setzen, optional 2x skaliert */
+  function putChar(ch, row, col, scale) {
+    const g = glyphFor(ch);
+    const ox = col * CW, oy = row * CH;
+    for (let gy = 0; gy < CH; gy++) {
+      for (let gx = 0; gx < CW; gx++) {
+        if (!(g[gy] & (1 << (CW - 1 - gx)))) continue;
+        for (let sy = 0; sy < scale; sy++) {
+          for (let sx = 0; sx < scale; sx++) {
+            const px = ox + gx * scale + sx, py = oy + gy * scale + sy;
+            if (px < W && py < H) pixels[py][px] = true;
+          }
+        }
+      }
+    }
+  }
+
+  function renderText() {
+    clearPixels();
+
+    if (bigFirstLine) {
+      // Zeile 1 doppelt hoch ueber die Zeichenzeilen 1+2 — entspricht dem,
+      // was LCDBigNumbers auf der echten Hardware macht.
+      const text = [...inputs[0].value].slice(0, Math.floor(COLS / 2));
+      text.forEach((ch, i) => putChar(ch, 0, i * 2, 2));
+      [2, 3].forEach(r => {
+        [...inputs[r].value].slice(0, COLS).forEach((ch, i) => putChar(ch, r, i, 1));
+      });
+    } else {
+      inputs.forEach((inp, r) => {
+        [...inp.value].slice(0, COLS).forEach((ch, i) => putChar(ch, r, i, 1));
+      });
+    }
+    render();
+    updateExport();
+  }
+
+  /* ---------- Export ---------- */
+  function cellBytes(row, col) {
+    // CGRAM-Zeilen sind 8 Byte lang; die achte Zeile existiert auf diesem
+    // Display nicht und bleibt deshalb 0.
+    const out = [];
+    for (let gy = 0; gy < CH; gy++) {
+      let b = 0;
+      for (let gx = 0; gx < CW; gx++) {
+        if (pixels[row * CH + gy][col * CW + gx]) b |= 1 << (CW - 1 - gx);
+      }
+      out.push(b);
+    }
+    out.push(0);
+    return out;
+  }
+
+  function asciiArt() {
+    const lines = [];
+    for (let row = 0; row < ROWS; row++) {
+      for (let gy = 0; gy < CH; gy++) {
+        let s = "";
+        for (let col = 0; col < COLS; col++) {
+          for (let gx = 0; gx < CW; gx++) {
+            s += pixels[row * CH + gy][col * CW + gx] ? "#" : ".";
+          }
+          if (col < COLS - 1) s += " ";
+        }
+        lines.push(s);
+      }
+      if (row < ROWS - 1) lines.push("");
+    }
+    return lines.join("\n");
+  }
+
+  function updateExport() {
+    const out = document.getElementById("out");
+
+    if (exportMode === "frame") {
+      out.textContent = asciiArt();
+      return;
+    }
+    if (!selected) {
+      out.textContent = "Im Zeichenmodus eine Zeichenzelle anklicken,\ndann steht hier das passende byte-Array.";
+      return;
+    }
+
+    const b = cellBytes(selected.row, selected.col);
+    const hex = b.map(v => "0x" + v.toString(16).toUpperCase().padStart(2, "0"));
+    const art = b.slice(0, CH).map(v => {
+      let s = "";
+      for (let i = CW - 1; i >= 0; i--) s += (v & (1 << i)) ? "#" : ".";
+      return "//  " + s;
+    });
+
+    out.textContent =
+      "// Zelle Zeile " + (selected.row + 1) + ", Spalte " + (selected.col + 1) + "\n" +
+      art.join("\n") + "\n" +
+      "byte glyph[8] = { " + hex.join(", ") + " };\n\n" +
+      "lcd.createChar(0, glyph);\n" +
+      "lcd.setCursor(" + selected.col + ", " + selected.row + ");\n" +
+      "lcd.write(byte(0));";
+  }
+
+  /* ---------- Eingaben ---------- */
+  inputs.forEach(inp => inp.addEventListener("input", renderText));
+
+  function setPressed(id, on) {
+    document.getElementById(id).setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  document.getElementById("bBig").addEventListener("click", function () {
+    bigFirstLine = !bigFirstLine;
+    setPressed("bBig", bigFirstLine);
+    inputs[1].disabled = bigFirstLine;
+    document.getElementById("hintMode").textContent = bigFirstLine
+      ? "Zeile 1 wird doppelt hoch über die Zeichenzeilen 1 und 2 gerendert — Zeile 2 ist dadurch belegt."
+      : "Zeichen, die der A00-Zeichensatz nicht kennt, erscheinen als leeres Kästchen.";
+    renderText();
+  });
+
+  document.getElementById("bPhoto").addEventListener("click", function () {
+    bigFirstLine = true;
+    setPressed("bBig", true);
+    inputs[1].disabled = true;
+    inputs[0].value = "22:21";
+    inputs[1].value = "";
+    inputs[2].value = "";
+    inputs[3].value = "  22°C  50%  999hPa";
+    renderText();
+  });
+
+  document.getElementById("bClear").addEventListener("click", function () {
+    inputs.forEach(i => i.value = "");
+    renderText();
+  });
+
+  document.getElementById("bRebuild").addEventListener("click", renderText);
+
+  function setDrawMode(mode) {
+    drawMode = (drawMode === mode) ? null : mode;
+    setPressed("bDraw", drawMode === "set");
+    setPressed("bErase", drawMode === "erase");
+    cv.style.cursor = drawMode ? "cell" : "crosshair";
+  }
+  document.getElementById("bDraw").addEventListener("click", () => setDrawMode("set"));
+  document.getElementById("bErase").addEventListener("click", () => setDrawMode("erase"));
+
+  document.getElementById("bExpCell").addEventListener("click", function () {
+    exportMode = "cell";
+    setPressed("bExpCell", true); setPressed("bExpFrame", false);
+    updateExport();
+  });
+  document.getElementById("bExpFrame").addEventListener("click", function () {
+    exportMode = "frame";
+    setPressed("bExpCell", false); setPressed("bExpFrame", true);
+    updateExport();
+  });
+
+  document.getElementById("bCopy").addEventListener("click", function () {
+    const btn = this;
+    navigator.clipboard.writeText(document.getElementById("out").textContent).then(function () {
+      btn.textContent = "Kopiert";
+      setTimeout(() => btn.textContent = "Kopieren", 1400);
+    }).catch(function () {
+      btn.textContent = "Ging nicht";
+      setTimeout(() => btn.textContent = "Kopieren", 1400);
+    });
+  });
+
+  /* ---------- Maus auf dem Display ---------- */
+  function canvasPos(ev) {
+    const r = cv.getBoundingClientRect();
+    return {
+      x: (ev.clientX - r.left) * (pxW / r.width),
+      y: (ev.clientY - r.top)  * (pxH / r.height)
+    };
+  }
+
+  let painting = false;
+
+  cv.addEventListener("mousemove", function (ev) {
+    const p = canvasPos(ev);
+    const hit = hitTest(p.x, p.y);
+
+    document.getElementById("rdPos").textContent =
+      hit && hit.x !== null ? "x " + hit.x + ", y " + hit.y : "–";
+    document.getElementById("rdCell").textContent =
+      hit ? "Zeile " + (hit.row + 1) + ", Spalte " + (hit.col + 1) : "–";
+    document.getElementById("rdDot").textContent =
+      hit && hit.x !== null ? (hit.x % CW + 1) + " / " + (hit.y % CH + 1) : "–";
+
+    if (painting && drawMode && hit && hit.x !== null) {
+      pixels[hit.y][hit.x] = (drawMode === "set");
+      render();
+      updateExport();
+    }
+  });
+
+  cv.addEventListener("mouseleave", function () {
+    ["rdPos","rdCell","rdDot"].forEach(id => document.getElementById(id).textContent = "–");
+    painting = false;
+  });
+
+  cv.addEventListener("mousedown", function (ev) {
+    const p = canvasPos(ev);
+    const hit = hitTest(p.x, p.y);
+    if (!hit) return;
+
+    selected = { row: hit.row, col: hit.col };
+    document.getElementById("selCell").textContent =
+      "Zeile " + (hit.row + 1) + ", Spalte " + (hit.col + 1);
+
+    if (drawMode && hit.x !== null) {
+      painting = true;
+      pixels[hit.y][hit.x] = (drawMode === "set");
+    }
+    render();
+    updateExport();
+    ev.preventDefault();
+  });
+
+  window.addEventListener("mouseup", function () { painting = false; });
+
+  /* ---------- Start: der Zustand aus dem Foto ---------- */
+  bigFirstLine = true;
+  setPressed("bBig", true);
+  inputs[1].disabled = true;
+  inputs[0].value = "22:21";
+  inputs[3].value = "  22°C  50%  999hPa";
+  renderText();
+})();
+</script>
+
+</body>
+</html>
