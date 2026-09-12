@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dame 3D — Mensch gegen Computer</title>
+<meta name="description" content="Dame auf einem 3D-Spielfeld: Spiele im Browser gegen den Computer. Schlagzwang, fliegende Damen, drei Schwierigkeitsgrade.">
+<meta name="theme-color" content="#12181f">
+<style>
+  :root {
+    --bg:      #12181f;
+    --panel:   #1b232d;
+    --line:    #2c3743;
+    --ink:     #e3ebf2;
+    --ink-dim: #8b9aa8;
+    --accent:  #d9a441;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { display: block; touch-action: none; }
+
+  /* --- Bedienleiste oben --- */
+  .hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .9rem;
+    align-items: center;
+    padding: .7rem clamp(.7rem, 3vw, 1.4rem);
+    background: linear-gradient(to bottom, rgba(18,24,31,.92), rgba(18,24,31,0));
+    pointer-events: none;
+  }
+
+  .hud > * { pointer-events: auto; }
+
+  .title {
+    font-weight: 600;
+    letter-spacing: .04em;
+    margin-right: auto;
+  }
+
+  .title small {
+    display: block;
+    font-weight: 400;
+    color: var(--ink-dim);
+    letter-spacing: 0;
+  }
+
+  button, select {
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: .5rem;
+    padding: .38rem .7rem;
+    cursor: pointer;
+  }
+
+  button:hover, select:hover { border-color: var(--accent); }
+
+  /* --- Statuszeile unten --- */
+  .status {
+    position: fixed;
+    left: 50%;
+    bottom: clamp(.8rem, 3vh, 1.6rem);
+    transform: translateX(-50%);
+    z-index: 2;
+    max-width: min(92vw, 34rem);
+    text-align: center;
+    padding: .55rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    background: rgba(27,35,45,.88);
+    backdrop-filter: blur(6px);
+  }
+
+  .status b { color: var(--accent); }
+
+  .hint {
+    position: fixed;
+    right: clamp(.7rem, 3vw, 1.4rem);
+    bottom: clamp(.8rem, 3vh, 1.6rem);
+    z-index: 2;
+    color: var(--ink-dim);
+    font-size: 12px;
+    text-align: right;
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    .hint { display: none; }
+    .title small { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="title">Dame 3D <small>Mensch (hell) gegen Computer (dunkel)</small></div>
+  <label>Stärke
+    <select id="level">
+      <option value="2">leicht</option>
+      <option value="4" selected>mittel</option>
+      <option value="6">stark</option>
+    </select>
+  </label>
+  <button id="undo">Zug zurück</button>
+  <button id="newgame">Neues Spiel</button>
+</div>
+
+<div class="status" id="status">Du bist am Zug.</div>
+<div class="hint">Ziehen = drehen · Rad/zwei Finger = zoomen</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ==========================================================================
+   Spiellogik — deutsche Dameregeln auf 8x8
+   Brett: Array mit 64 Feldern, Index = Reihe * 8 + Spalte.
+   Werte:  1 = Stein Mensch,  2 = Dame Mensch
+          -1 = Stein Computer, -2 = Dame Computer
+   Mensch spielt von unten (Reihe 7) nach oben (Reihe 0).
+   ========================================================================== */
+
+const HUMAN = 1, AI = -1;
+const DIRS = [[-1,-1], [-1,1], [1,-1], [1,1]];
+
+const inside = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8;
+const dark   = (r, c) => (r + c) % 2 === 1;      // bespielbare Felder
+const sq     = (r, c) => r * 8 + c;
+const side   = v => v > 0 ? HUMAN : v < 0 ? AI : 0;
+
+function newBoard() {
+  const b = new Array(64).fill(0);
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (!dark(r, c)) continue;
+      if (r < 3) b[sq(r, c)] = -1;
+      if (r > 4) b[sq(r, c)] =  1;
+    }
+  }
+  return b;
+}
+
+/* --- Zuggenerierung ---------------------------------------------------- */
+
+// Schlagfolgen eines einzelnen Steins, rekursiv. Geschlagene Steine werden
+// sofort entfernt, damit derselbe Stein nicht zweimal gesprungen wird.
+function captureSeqs(board, r, c, piece, caps, path, out) {
+  const king = Math.abs(piece) === 2;
+  const me = side(piece);
+  let found = false;
+
+  for (const [dr, dc] of DIRS) {
+    if (king) {
+      // Fliegende Dame: beliebig weit bis zum Gegner, danach beliebig weit landen.
+      let rr = r + dr, cc = c + dc;
+      while (inside(rr, cc) && board[sq(rr, cc)] === 0) { rr += dr; cc += dc; }
+      if (!inside(rr, cc)) continue;
+      const victim = sq(rr, cc);
+      if (side(board[victim]) !== -me) continue;
+
+      let lr = rr + dr, lc = cc + dc;
+      while (inside(lr, lc) && board[sq(lr, lc)] === 0) {
+        const next = board.slice();
+        next[sq(r, c)] = 0;
+        next[victim] = 0;
+        next[sq(lr, lc)] = piece;
+        found = true;
+        captureSeqs(next, lr, lc, piece, caps.concat(victim), path.concat(sq(lr, lc)), out);
+        lr += dr; lc += dc;
+      }
+    } else {
+      // Stein: schlägt vorwärts wie rückwärts, aber immer nur ein Feld weit.
+      const vr = r + dr, vc = c + dc, lr = r + 2 * dr, lc = c + 2 * dc;
+      if (!inside(lr, lc)) continue;
+      const victim = sq(vr, vc);
+      if (side(board[victim]) !== -me || board[sq(lr, lc)] !== 0) continue;
+
+      const next = board.slice();
+      next[sq(r, c)] = 0;
+      next[victim] = 0;
+      found = true;
+
+      // Erreicht ein Stein die letzte Reihe, endet der Zug und er wird Dame.
+      const promoted = (me === HUMAN && lr === 0) || (me === AI && lr === 7);
+      next[sq(lr, lc)] = promoted ? piece * 2 : piece;
+
+      if (promoted) {
+        out.push({ path: path.concat(sq(lr, lc)), caps: caps.concat(victim), promote: true });
+      } else {
+        captureSeqs(next, lr, lc, piece, caps.concat(victim), path.concat(sq(lr, lc)), out);
+      }
+    }
+  }
+
+  // Keine Fortsetzung mehr: die bisherige Folge ist ein vollständiger Zug.
+  if (!found && caps.length) out.push({ path: path.slice(), caps: caps.slice(), promote: false });
+}
+
+function legalMoves(board, me) {
+  const caps = [], quiet = [];
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[sq(r, c)];
+      if (side(piece) !== me) continue;
+      captureSeqs(board, r, c, piece, [], [sq(r, c)], caps);
+    }
+  }
+  if (caps.length) return caps.map(m => ({ ...m, from: m.path[0], to: m.path[m.path.length - 1] }));
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[sq(r, c)];
+      if (side(piece) !== me) continue;
+      const king = Math.abs(piece) === 2;
+
+      for (const [dr, dc] of DIRS) {
+        if (!king && dr !== -me) continue;          // Steine nur vorwärts
+        let rr = r + dr, cc = c + dc;
+        while (inside(rr, cc) && board[sq(rr, cc)] === 0) {
+          const promoted = !king && ((me === HUMAN && rr === 0) || (me === AI && rr === 7));
+          quiet.push({
+            path: [sq(r, c), sq(rr, cc)], caps: [], promote: promoted,
+            from: sq(r, c), to: sq(rr, cc)
+          });
+          if (!king) break;                          // Steine nur ein Feld weit
+          rr += dr; cc += dc;
+        }
+      }
+    }
+  }
+  return quiet;
+}
+
+function applyMove(board, mv) {
+  const next = board.slice();
+  const piece = next[mv.from];
+  next[mv.from] = 0;
+  for (const v of mv.caps) next[v] = 0;
+  next[mv.to] = mv.promote ? piece * 2 : piece;
+  return next;
+}
+
+/* --- Computergegner: Negamax mit Alpha-Beta ---------------------------- */
+
+function evaluate(board, me) {
+  let score = 0;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const v = board[sq(r, c)];
+      if (!v) continue;
+      const s = side(v);
+      let val = Math.abs(v) === 2 ? 340 : 100;
+      if (Math.abs(v) === 1) {
+        // Vorrücken belohnen, Grundreihe als Schutz leicht halten.
+        val += s === HUMAN ? (7 - r) * 6 : r * 6;
+      }
+      val += (c === 0 || c === 7) ? 4 : 0;           // Randfelder sind sicher
+      score += s === me ? val : -val;
+    }
+  }
+  return score;
+}
+
+function search(board, me, depth, alpha, beta) {
+  const moves = legalMoves(board, me);
+  if (!moves.length) return -100000 - depth;         // wer nicht ziehen kann, verliert
+  if (depth === 0) return evaluate(board, me);
+
+  // Schlagzüge zuerst prüfen — das kappt den Suchbaum deutlich.
+  moves.sort((a, b) => b.caps.length - a.caps.length);
+
+  let best = -Infinity;
+  for (const mv of moves) {
+    const score = -search(applyMove(board, mv), -me, depth - 1, -beta, -alpha);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function pickMove(board, me, depth) {
+  const moves = legalMoves(board, me);
+  if (!moves.length) return null;
+  moves.sort((a, b) => b.caps.length - a.caps.length);
+
+  let best = -Infinity, pool = [];
+  for (const mv of moves) {
+    const score = -search(applyMove(board, mv), -me, depth - 1, -Infinity, Infinity);
+    if (score > best + 0.5) { best = score; pool = [mv]; }
+    else if (Math.abs(score - best) <= 0.5) pool.push(mv);
+  }
+  return pool[Math.floor(Math.random() * pool.length)];   // gleichwertige Züge variieren
+}
+
+/* ==========================================================================
+   3D-Darstellung
+   ========================================================================== */
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x12181f);
+scene.fog = new THREE.Fog(0x12181f, 16, 34);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 9.5, 9.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+controls.minDistance = 7;
+controls.maxDistance = 22;
+controls.maxPolarAngle = Math.PI * 0.47;
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x20262e, 0.75));
+const key = new THREE.DirectionalLight(0xfff2dc, 1.5);
+key.position.set(6, 12, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+key.shadow.camera.top = 8;   key.shadow.camera.bottom = -8;
+scene.add(key);
+
+const boardGroup = new THREE.Group();
+const pieceGroup = new THREE.Group();
+const markerGroup = new THREE.Group();
+scene.add(boardGroup, pieceGroup, markerGroup);
+
+// Weltposition eines Feldes: Spalte -> x, Reihe -> z
+const worldX = c => c - 3.5;
+const worldZ = r => r - 3.5;
+
+// Rahmen und Unterbau
+const frameMat = new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: .7, metalness: .1 });
+const frame = new THREE.Mesh(new THREE.BoxGeometry(9.2, .5, 9.2), frameMat);
+frame.position.y = -.3;
+frame.receiveShadow = true;
+boardGroup.add(frame);
+
+const lightMat = new THREE.MeshStandardMaterial({ color: 0xe8d5b0, roughness: .55 });
+const darkMat  = new THREE.MeshStandardMaterial({ color: 0x6b4630, roughness: .6 });
+const tileGeo  = new THREE.BoxGeometry(1, .12, 1);
+const tiles = [];
+
+for (let r = 0; r < 8; r++) {
+  for (let c = 0; c < 8; c++) {
+    const tile = new THREE.Mesh(tileGeo, dark(r, c) ? darkMat : lightMat);
+    tile.position.set(worldX(c), 0, worldZ(r));
+    tile.receiveShadow = true;
+    tile.userData.square = sq(r, c);
+    boardGroup.add(tile);
+    tiles.push(tile);
+  }
+}
+
+// Steine
+const manGeo  = new THREE.CylinderGeometry(.38, .40, .16, 40);
+const ringGeo = new THREE.TorusGeometry(.30, .035, 12, 40);
+const humanMat = new THREE.MeshStandardMaterial({ color: 0xf2ead6, roughness: .35, metalness: .15 });
+const aiMat    = new THREE.MeshStandardMaterial({ color: 0x23282f, roughness: .4,  metalness: .25 });
+const goldMat  = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: .3,  metalness: .7 });
+
+function makePiece(value) {
+  const g = new THREE.Group();
+  const mat = value > 0 ? humanMat : aiMat;
+
+  const base = new THREE.Mesh(manGeo, mat);
+  base.castShadow = true; base.receiveShadow = true;
+  g.add(base);
+
+  if (Math.abs(value) === 2) {
+    // Dame: zweite Scheibe plus goldener Ring als Krone
+    const top = new THREE.Mesh(manGeo, mat);
+    top.position.y = .16;
+    top.castShadow = true; top.receiveShadow = true;
+    g.add(top);
+
+    const crown = new THREE.Mesh(ringGeo, goldMat);
+    crown.rotation.x = Math.PI / 2;
+    crown.position.y = .25;
+    crown.castShadow = true;
+    g.add(crown);
+  }
+  return g;
+}
+
+const pieceMeshes = new Map();   // Feldindex -> Group
+
+function renderBoard(board) {
+  // Komplett leeren: so bleiben keine Reste aus Animationen zurueck.
+  while (pieceGroup.children.length) pieceGroup.remove(pieceGroup.children[0]);
+  pieceMeshes.clear();
+
+  for (let i = 0; i < 64; i++) {
+    if (!board[i]) continue;
+    const mesh = makePiece(board[i]);
+    mesh.position.set(worldX(i % 8), .14, worldZ((i / 8) | 0));
+    pieceGroup.add(mesh);
+    pieceMeshes.set(i, mesh);
+  }
+}
+
+// Markierungen für ausgewählten Stein und mögliche Ziele
+const markGeo = new THREE.CylinderGeometry(.42, .42, .03, 40);
+const selMat  = new THREE.MeshStandardMaterial({ color: 0xd9a441, emissive: 0x5c4210, roughness: .4 });
+const tgtMat  = new THREE.MeshStandardMaterial({ color: 0x63c08a, emissive: 0x1d4630, roughness: .4 });
+
+function showMarkers(squares, material) {
+  for (const i of squares) {
+    const m = new THREE.Mesh(markGeo, material);
+    m.position.set(worldX(i % 8), .08, worldZ((i / 8) | 0));
+    m.userData.square = i;
+    markerGroup.add(m);
+  }
+}
+
+function clearMarkers() {
+  while (markerGroup.children.length) markerGroup.remove(markerGroup.children[0]);
+}
+
+/* ==========================================================================
+   Spielablauf
+   ========================================================================== */
+
+const statusEl = document.getElementById('status');
+const levelEl  = document.getElementById('level');
+
+let board = newBoard();
+let history = [];          // Stellungen vor jedem Halbzug, für "Zug zurück"
+let selected = null;
+let busy = false;          // während Animation und Computerzug gesperrt
+let over = false;
+
+function setStatus(html) { statusEl.innerHTML = html; }
+
+function humanMoves() { return legalMoves(board, HUMAN); }
+
+function start() {
+  board = newBoard();
+  history = [];
+  selected = null;
+  over = false;
+  busy = false;
+  clearMarkers();
+  renderBoard(board);
+  updateStatus();
+}
+
+function updateStatus() {
+  if (over) return;
+  const moves = humanMoves();
+  if (!moves.length) {
+    over = true;
+    setStatus('<b>Der Computer gewinnt.</b> Du hast keinen Zug mehr.');
+    return;
+  }
+  setStatus(moves[0].caps.length
+    ? 'Du bist am Zug — <b>es besteht Schlagzwang</b>.'
+    : 'Du bist am Zug.');
+}
+
+// Bewegt einen Stein entlang seines Pfades; Sprünge bekommen einen Bogen.
+function animateMove(mv, done) {
+  const mesh = pieceMeshes.get(mv.from);
+  if (!mesh) { done(); return; }
+
+  pieceMeshes.delete(mv.from);
+  const hops = mv.path.slice(1);
+  const captured = mv.caps.map(i => pieceMeshes.get(i)).filter(Boolean);
+  for (const i of mv.caps) pieceMeshes.delete(i);
+
+  let step = 0;
+  function hop() {
+    if (step >= hops.length) {
+      for (const m of captured) pieceGroup.remove(m);
+      done();
+      return;
+    }
+    const from = mesh.position.clone();
+    const target = hops[step];
+    const to = new THREE.Vector3(worldX(target % 8), .14, worldZ((target / 8) | 0));
+    const arc = mv.caps.length ? .7 : .25;
+    const dur = mv.caps.length ? 340 : 260;
+    const t0 = performance.now();
+
+    (function frame(now) {
+      const t = Math.min(1, ((now ?? performance.now()) - t0) / dur);
+      const e = t * t * (3 - 2 * t);
+      mesh.position.lerpVectors(from, to, e);
+      mesh.position.y += Math.sin(Math.PI * e) * arc;
+      if (t < 1) requestAnimationFrame(frame);
+      else { step++; hop(); }
+    })(t0);
+  }
+  hop();
+}
+
+function commit(mv, after) {
+  busy = true;
+  clearMarkers();
+  history.push(board.slice());
+  const next = applyMove(board, mv);
+
+  animateMove(mv, () => {
+    board = next;
+    renderBoard(board);              // sorgt auch für die Krone nach Umwandlung
+    busy = false;
+    after();
+  });
+}
+
+function humanMove(mv) {
+  selected = null;
+  commit(mv, () => {
+    if (checkEnd()) return;
+    setStatus('Der Computer denkt nach …');
+    // Rendern lassen, bevor die Suche den Hauptthread blockiert.
+    setTimeout(aiTurn, 60);
+  });
+}
+
+function aiTurn() {
+  const depth = parseInt(levelEl.value, 10);
+  const mv = pickMove(board, AI, depth);
+  if (!mv) { over = true; setStatus('<b>Du gewinnst!</b> Der Computer kann nicht mehr ziehen.'); return; }
+  busy = true;
+  commit(mv, () => { if (!checkEnd()) updateStatus(); });
+}
+
+function checkEnd() {
+  const mine = board.some(v => side(v) === HUMAN);
+  const theirs = board.some(v => side(v) === AI);
+  if (!theirs)  { over = true; setStatus('<b>Du gewinnst!</b> Alle Steine des Computers sind geschlagen.'); return true; }
+  if (!mine)    { over = true; setStatus('<b>Der Computer gewinnt.</b> Alle deine Steine sind weg.'); return true; }
+  return false;
+}
+
+/* --- Auswahl per Maus/Finger ------------------------------------------- */
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let downPos = null;
+
+function squareAt(event) {
+  pointer.x = (event.clientX / innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects([...markerGroup.children, ...tiles], true)[0];
+  return hit ? hit.object.userData.square : null;
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  downPos = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('pointerup', e => {
+  // Nur echte Klicks auswerten, kein Kameraschwenk.
+  if (!downPos || Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+  downPos = null;
+  if (busy || over) return;
+
+  const target = squareAt(e);
+  if (target == null) return;
+
+  const moves = humanMoves();
+
+  if (selected != null) {
+    const mv = moves.find(m => m.from === selected && m.to === target);
+    if (mv) { humanMove(mv); return; }
+  }
+
+  const options = moves.filter(m => m.from === target);
+  clearMarkers();
+  if (!options.length) { selected = null; return; }
+
+  selected = target;
+  showMarkers([target], selMat);
+  showMarkers(options.map(m => m.to), tgtMat);
+});
+
+/* --- Bedienelemente ----------------------------------------------------- */
+
+document.getElementById('newgame').addEventListener('click', start);
+
+document.getElementById('undo').addEventListener('click', () => {
+  if (busy) return;
+  // Zwei Halbzüge zurück: eigener Zug und Antwort des Computers.
+  if (!history.length) return;
+  board = history.pop();
+  if (history.length && !over) board = history.pop();
+  selected = null;
+  over = false;
+  clearMarkers();
+  renderBoard(board);
+  updateStatus();
+});
+
+levelEl.addEventListener('change', () => levelEl.blur());
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+(function loop() {
+  requestAnimationFrame(loop);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+
+start();
+</script>
+</body>
+</html>
