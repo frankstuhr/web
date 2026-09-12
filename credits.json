@@ -1,0 +1,66 @@
+[
+  {
+    "file": "images/01-weinberge-stocksberg.jpg",
+    "caption": "Weinberge bei Schloss Stocksberg im Oktoberlicht",
+    "author": "Roman Eisele",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Brackenheim_-_Stockheim_-_Weinberge_rund_um_Schloss_Stocksberg_-_Ansicht_von_NNO_im_Oktober_(1).jpg"
+  },
+  {
+    "file": "images/02-rapsfeld-baum.jpg",
+    "caption": "Rapsfeld mit einzelnem Baum",
+    "author": "Hartmut Schmidt, Heidelberg",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Landschaft_mit_Rapsfeld_und_Baum.jpg"
+  },
+  {
+    "file": "images/03-kraichgau-mai.jpg",
+    "caption": "Kraichgau-Landschaft im Mai",
+    "author": "Armin S Kowalski",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Kraichgau-Landschaft_im_Mai_-_170521_(34826402275).jpg"
+  },
+  {
+    "file": "images/04-steinsberg-luft.jpg",
+    "caption": "Burg Steinsberg aus der Luft",
+    "author": "Carsten Steger",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Aerial_image_of_Steinsberg_Castle_(view_from_the_southeast).jpg"
+  },
+  {
+    "file": "images/05-steinsberg-panorama.jpg",
+    "caption": "Burg Steinsberg über den Feldern",
+    "author": "Grossbildjaeger",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Burg_Steinsberg_Panorama_Kraichgau_Deutschland.JPG"
+  },
+  {
+    "file": "images/06-rapsfeld-aglasterhausen.jpg",
+    "caption": "Rapsfeld bei Aglasterhausen",
+    "author": "Hartmut Schmidt Heidelberg",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Rapsfeld_im_Kraichgau,_Bereich_Aglasterhausen.jpg"
+  },
+  {
+    "file": "images/07-ried-raps-zuzenhausen.jpg",
+    "caption": "Ried und Raps westlich von Zuzenhausen",
+    "author": "Hartmut Schmidt Heidelberg",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Landschaft_mit_Ried_und_Raps,_westlich_von_Zuzenhausen.jpg"
+  },
+  {
+    "file": "images/08-weinberge-haberschlacht.jpg",
+    "caption": "Weinberge bei Haberschlacht im Oktober",
+    "author": "Roman Eisele",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Brackenheim_-_Stockheim,_Haberschlacht_-_Weinberge_im_Oktober_von_Osten_(1).jpg"
+  }
+]

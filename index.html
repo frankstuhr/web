@@ -2,32 +2,31 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hello World</title>
-<meta name="description" content="Hello World — mit wechselnden Bergpanoramen.">
-<link rel="preconnect" href="https://images.unsplash.com">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hello World — Kraichgau</title>
+<meta name="description" content="Hello World — mit wechselnden Bildern aus dem Kraichgau.">
+<meta name="theme-color" content="#1c2416">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
 
   html, body {
     height: 100%;
     margin: 0;
+    overscroll-behavior: none;
   }
 
   body {
     font-family: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #0d1117;
+    background: #1c2416;
     color: #fff;
     overflow: hidden;
+    /* Horizontales Wischen werten wir selbst aus */
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* --- Hintergrund-Ebenen (zwei, die sich gegenseitig überblenden) --- */
-  .stage {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    background: #0d1117;
-  }
+  /* --- Hintergrund: zwei Ebenen, die sich überblenden --- */
+  .stage { position: fixed; inset: 0; z-index: 0; background: #1c2416; }
 
   .layer {
     position: absolute;
@@ -35,33 +34,27 @@
     background-size: cover;
     background-position: center;
     opacity: 0;
-    transition: opacity 2s ease-in-out;
+    transition: opacity 1.6s ease-in-out;
     will-change: opacity, transform;
   }
 
-  .layer.is-active {
-    opacity: 1;
-  }
-
-  /* Langsamer Ken-Burns-Zoom, neu gestartet bei jedem Bildwechsel */
-  .layer.is-animating {
-    animation: kenburns 14s ease-out forwards;
-  }
+  .layer.is-active { opacity: 1; }
+  .layer.is-animating { animation: kenburns 16s ease-out forwards; }
 
   @keyframes kenburns {
     from { transform: scale(1.02); }
-    to   { transform: scale(1.12); }
+    to   { transform: scale(1.11); }
   }
 
-  /* Abdunkelung für Lesbarkeit der Schrift */
+  /* Abdunkelung für Lesbarkeit */
   .scrim {
     position: fixed;
     inset: 0;
     z-index: 1;
-    background:
-      radial-gradient(ellipse at center, rgba(0,0,0,.15) 0%, rgba(0,0,0,.55) 100%),
-      linear-gradient(to bottom, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.5) 100%);
     pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 45%, rgba(0,0,0,.12) 0%, rgba(0,0,0,.55) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,.3) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.6) 100%);
   }
 
   /* --- Inhalt --- */
@@ -75,6 +68,7 @@
     justify-content: center;
     text-align: center;
     padding: 2rem 1.5rem;
+    pointer-events: none;
   }
 
   h1 {
@@ -83,24 +77,23 @@
     font-weight: 200;
     letter-spacing: .06em;
     line-height: 1.05;
-    text-shadow: 0 2px 40px rgba(0,0,0,.6);
+    text-shadow: 0 2px 40px rgba(0,0,0,.65);
     animation: rise 1.4s cubic-bezier(.2,.7,.3,1) both;
   }
 
   .tagline {
     margin: 1.25rem 0 0;
-    font-size: clamp(.9rem, 2.2vw, 1.15rem);
+    font-size: clamp(.85rem, 2.2vw, 1.15rem);
     font-weight: 300;
     letter-spacing: .22em;
     text-transform: uppercase;
-    color: rgba(255,255,255,.82);
-    text-shadow: 0 1px 20px rgba(0,0,0,.7);
+    color: rgba(255,255,255,.85);
+    text-shadow: 0 1px 20px rgba(0,0,0,.75);
     animation: rise 1.4s .25s cubic-bezier(.2,.7,.3,1) both;
   }
 
   .rule {
-    width: 72px;
-    height: 1px;
+    width: 72px; height: 1px;
     margin: 2rem 0 0;
     background: rgba(255,255,255,.45);
     animation: rise 1.4s .45s cubic-bezier(.2,.7,.3,1) both;
@@ -111,60 +104,98 @@
     to   { opacity: 1; transform: none; }
   }
 
-  /* --- Punkte zum Umschalten --- */
-  .dots {
+  /* --- Fußzeile: Bildunterschrift, Punkte, Nachweis --- */
+  .footer {
     position: fixed;
     z-index: 3;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0; right: 0;
+    bottom: max(1.1rem, env(safe-area-inset-bottom));
     display: flex;
-    gap: .6rem;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    padding: 0 1.25rem;
+    text-align: center;
   }
 
+  .caption {
+    margin: 0;
+    font-size: .875rem;
+    font-weight: 300;
+    letter-spacing: .06em;
+    color: rgba(255,255,255,.92);
+    text-shadow: 0 1px 12px rgba(0,0,0,.85);
+    transition: opacity .5s ease;
+  }
+
+  .credit {
+    margin: 0;
+    font-size: .7rem;
+    letter-spacing: .03em;
+    color: rgba(255,255,255,.6);
+    text-shadow: 0 1px 10px rgba(0,0,0,.85);
+    transition: opacity .5s ease;
+  }
+
+  .credit a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.28); }
+  .credit a:hover { color: #fff; }
+
+  .is-fading { opacity: 0; }
+
+  .dots { display: flex; gap: .55rem; }
+
   .dot {
-    width: 8px;
-    height: 8px;
+    width: 9px; height: 9px;
     padding: 0;
-    border: 1px solid rgba(255,255,255,.7);
+    border: 1px solid rgba(255,255,255,.75);
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
     transition: background .4s ease, transform .3s ease;
   }
 
-  .dot:hover { transform: scale(1.35); }
+  .dot:hover { transform: scale(1.3); }
   .dot[aria-current="true"] { background: #fff; }
   .dot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
-  /* --- Bildnachweis --- */
-  .credit {
+  /* --- Wisch-Hinweis, nur auf Touch-Geräten --- */
+  .hint {
     position: fixed;
     z-index: 3;
-    right: 1.25rem;
-    bottom: 1.25rem;
-    font-size: .75rem;
-    letter-spacing: .04em;
-    color: rgba(255,255,255,.65);
-    text-shadow: 0 1px 8px rgba(0,0,0,.8);
+    left: 50%;
+    bottom: 30%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: .5rem;
+    font-size: .78rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.75);
+    text-shadow: 0 1px 12px rgba(0,0,0,.85);
+    pointer-events: none;
+    animation: hintPulse 2.6s ease-in-out infinite;
     transition: opacity .6s ease;
   }
 
-  .credit a {
-    color: inherit;
-    text-decoration: none;
-    border-bottom: 1px solid rgba(255,255,255,.3);
-  }
+  body.is-touch .hint { display: flex; }
+  .hint.is-gone { opacity: 0; }
 
-  .credit a:hover { color: #fff; }
+  @keyframes hintPulse {
+    0%, 100% { transform: translateX(-50%) translateX(0); opacity: .75; }
+    50%      { transform: translateX(-50%) translateX(-9px); opacity: 1; }
+  }
 
   @media (max-width: 600px) {
-    .credit { left: 1.25rem; right: 1.25rem; text-align: center; bottom: 4.25rem; }
+    .caption { font-size: .8rem; }
+    .credit  { font-size: .65rem; line-height: 1.5; }
   }
 
-  /* Bewegung reduzieren, wenn vom System gewünscht */
   @media (prefers-reduced-motion: reduce) {
-    .layer, h1, .tagline, .rule { animation: none !important; transition: opacity .4s linear; }
+    .layer, h1, .tagline, .rule, .hint {
+      animation: none !important;
+      transition: opacity .4s linear;
+    }
   }
 </style>
 </head>
@@ -178,51 +209,57 @@
 
 <main class="content">
   <h1>Hello World</h1>
-  <p class="tagline">Irgendwo in den Bergen</p>
+  <p class="tagline">Irgendwo im Kraichgau</p>
   <div class="rule" aria-hidden="true"></div>
 </main>
 
-<nav class="dots" id="dots" aria-label="Hintergrundbild wählen"></nav>
+<div class="hint" id="hint" aria-hidden="true">
+  <span>&#10094;</span> wischen <span>&#10095;</span>
+</div>
 
-<p class="credit" id="credit"></p>
+<footer class="footer">
+  <p class="caption" id="caption"></p>
+  <nav class="dots" id="dots" aria-label="Bild wählen"></nav>
+  <p class="credit" id="credit"></p>
+</footer>
 
 <script>
 (function () {
   "use strict";
 
+  /* Alle Bilder liegen im Repo (Wikimedia bittet darum, nicht dauerhaft zu hotlinken).
+     CC-BY-SA verlangt Nennung von Urheber, Lizenz und Quelle — siehe credits.json. */
   var PHOTOS = [
-    { id: "1464822759023-fed622ff2c3b", by: "Kalen Emsley" },
-    { id: "1483728642387-6c3bdd6c93e5", by: "Daniel Leone" },
-    { id: "1519681393784-d120267933ba", by: "Benjamin Voros" },
-    { id: "1570641963303-92ce4845ed4c", by: "Massimiliano Morosinotto" },
-    { id: "1501785888041-af3ef285b470", by: "Pietro De Grandi" },
-    { id: "1478059299873-f047d8c5fe1a", by: "Mark Basarab" },
-    { id: "1465056836041-7f43ac27dcb5", by: "Tobias Keller" },
-    { id: "1506905925346-21bda4d32df4", by: "Sam Ferrara" }
+    { file: "images/01-weinberge-stocksberg.jpg",     caption: "Weinberge bei Schloss Stocksberg, Oktoberlicht", author: "Roman Eisele",              license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Brackenheim_-_Stockheim_-_Weinberge_rund_um_Schloss_Stocksberg_-_Ansicht_von_NNO_im_Oktober_(1).jpg" },
+    { file: "images/02-rapsfeld-baum.jpg",            caption: "Rapsfeld mit einzelnem Baum",                    author: "Hartmut Schmidt, Heidelberg", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Landschaft_mit_Rapsfeld_und_Baum.jpg" },
+    { file: "images/03-kraichgau-mai.jpg",            caption: "Kraichgau-Landschaft im Mai",                    author: "Armin S Kowalski",           license: "CC BY-SA 2.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/2.0", source: "https://commons.wikimedia.org/wiki/File:Kraichgau-Landschaft_im_Mai_-_170521_(34826402275).jpg" },
+    { file: "images/04-steinsberg-luft.jpg",          caption: "Burg Steinsberg aus der Luft",                   author: "Carsten Steger",             license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Aerial_image_of_Steinsberg_Castle_(view_from_the_southeast).jpg" },
+    { file: "images/05-steinsberg-panorama.jpg",      caption: "Burg Steinsberg über den Feldern",               author: "Grossbildjaeger",            license: "CC BY-SA 3.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/3.0", source: "https://commons.wikimedia.org/wiki/File:Burg_Steinsberg_Panorama_Kraichgau_Deutschland.JPG" },
+    { file: "images/06-rapsfeld-aglasterhausen.jpg",  caption: "Rapsfeld bei Aglasterhausen",                    author: "Hartmut Schmidt, Heidelberg", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Rapsfeld_im_Kraichgau,_Bereich_Aglasterhausen.jpg" },
+    { file: "images/07-ried-raps-zuzenhausen.jpg",    caption: "Ried und Raps westlich von Zuzenhausen",         author: "Hartmut Schmidt, Heidelberg", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Landschaft_mit_Ried_und_Raps,_westlich_von_Zuzenhausen.jpg" },
+    { file: "images/08-weinberge-haberschlacht.jpg",  caption: "Weinberge bei Haberschlacht im Oktober",         author: "Roman Eisele",               license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0", source: "https://commons.wikimedia.org/wiki/File:Brackenheim_-_Stockheim,_Haberschlacht_-_Weinberge_im_Oktober_von_Osten_(1).jpg" }
   ];
 
   var INTERVAL = 7000;
+  var SWIPE_MIN = 45;   // Mindestdistanz in px
+  var SWIPE_MAX_MS = 800;
 
-  function urlFor(photo) {
-    var w = Math.min(2400, Math.ceil((window.innerWidth || 1600) * (window.devicePixelRatio || 1)));
-    return "https://images.unsplash.com/photo-" + photo.id +
-           "?auto=format&fit=crop&w=" + w + "&q=80";
-  }
+  var layers  = [document.getElementById("layerA"), document.getElementById("layerB")];
+  var capEl   = document.getElementById("caption");
+  var credEl  = document.getElementById("credit");
+  var dotsEl  = document.getElementById("dots");
+  var hintEl  = document.getElementById("hint");
 
-  var layers = [document.getElementById("layerA"), document.getElementById("layerB")];
-  var creditEl = document.getElementById("credit");
-  var dotsEl = document.getElementById("dots");
-  var front = 0;      // Index der aktuell sichtbaren Ebene
-  var current = -1;   // Index des aktuellen Fotos
+  var front = 0;     // sichtbare Ebene
+  var current = -1;  // aktuelles Foto
   var timer = null;
 
-  // Punkte aufbauen
   var dots = PHOTOS.map(function (photo, i) {
     var b = document.createElement("button");
     b.className = "dot";
     b.type = "button";
     b.setAttribute("aria-label", "Bild " + (i + 1) + " von " + PHOTOS.length);
-    b.addEventListener("click", function () { show(i); restart(); });
+    b.addEventListener("click", function () { go(i); });
     dotsEl.appendChild(b);
     return b;
   });
@@ -235,40 +272,98 @@
     var next = layers[1 - front];
     var prev = layers[front];
 
-    next.style.backgroundImage = 'url("' + urlFor(photo) + '")';
+    next.style.backgroundImage = 'url("' + photo.file + '")';
 
-    // Ken-Burns-Animation für die neue Ebene neu starten
     next.classList.remove("is-animating");
-    void next.offsetWidth; // Reflow erzwingen
+    void next.offsetWidth;               // Reflow, damit der Zoom neu startet
     next.classList.add("is-animating", "is-active");
     prev.classList.remove("is-active");
-
     front = 1 - front;
 
-    creditEl.innerHTML = 'Foto: ' + photo.by +
-      ' · <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash</a>';
+    // Text kurz ausblenden, damit der Wechsel nicht hart wirkt
+    capEl.classList.add("is-fading");
+    credEl.classList.add("is-fading");
+    setTimeout(function () {
+      capEl.textContent = photo.caption;
+      credEl.innerHTML =
+        'Foto: ' + photo.author + ' · ' +
+        '<a href="' + photo.licenseUrl + '" target="_blank" rel="noopener noreferrer license">' + photo.license + '</a> · ' +
+        '<a href="' + photo.source + '" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>';
+      capEl.classList.remove("is-fading");
+      credEl.classList.remove("is-fading");
+    }, 500);
 
     dots.forEach(function (d, i) {
       d.setAttribute("aria-current", i === index ? "true" : "false");
     });
   }
 
-  function next() {
-    show((current + 1) % PHOTOS.length);
+  function step(delta) {
+    show((current + delta + PHOTOS.length) % PHOTOS.length);
+  }
+
+  /* Nutzergesteuerter Wechsel: springt und startet den Timer neu */
+  function go(index) {
+    show(index);
+    restart();
   }
 
   function restart() {
     clearInterval(timer);
-    timer = setInterval(next, INTERVAL);
+    timer = setInterval(function () { step(1); }, INTERVAL);
   }
 
-  // Alle Bilder im Hintergrund vorladen, damit die Wechsel sauber sind
-  PHOTOS.forEach(function (photo) {
-    var img = new Image();
-    img.src = urlFor(photo);
+  /* --- Wischen auf dem Handy --- */
+  var sx = 0, sy = 0, st = 0, tracking = false;
+
+  document.addEventListener("touchstart", function (e) {
+    document.body.classList.add("is-touch");
+    if (e.touches.length !== 1) { tracking = false; return; }
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    st = Date.now();
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", function (e) {
+    if (!tracking) return;
+    tracking = false;
+
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx;
+    var dy = t.clientY - sy;
+
+    // Nur eindeutig horizontale, zügige Wischer zählen
+    if (Date.now() - st > SWIPE_MAX_MS) return;
+    if (Math.abs(dx) < SWIPE_MIN) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.4) return;
+
+    step(dx < 0 ? 1 : -1);
+    restart();
+    dismissHint();
+  }, { passive: true });
+
+  // Hinweis einblenden, sobald ein Touch-Gerät erkannt wird
+  if (window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches) {
+    document.body.classList.add("is-touch");
+  }
+
+  var hintTimer = setTimeout(dismissHint, 9000);
+  function dismissHint() {
+    clearTimeout(hintTimer);
+    hintEl.classList.add("is-gone");
+  }
+
+  /* --- Tastatur --- */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight") { step(1);  restart(); }
+    if (e.key === "ArrowLeft")  { step(-1); restart(); }
   });
 
-  // Bei verstecktem Tab pausieren – spart Daten und Akku
+  /* Bilder vorladen, damit die Überblendung sauber läuft */
+  PHOTOS.forEach(function (photo) { new Image().src = photo.file; });
+
+  // Im versteckten Tab pausieren
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) { clearInterval(timer); } else { restart(); }
   });
